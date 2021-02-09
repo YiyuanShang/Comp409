@@ -4,23 +4,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class Zombie{
+public class zombie {
     static List<Friend> friends = new ArrayList<>();
-    static int friendNum = 2;
-    static int threshold = 10;
+    static int friendNum;
+    static int threshold;
+
     static int enteredTotalNum;
     static int removedNum = 0;
     static int currentNum;
     static long period = 20 * 1000; // 20s
+    static boolean running = true;
 
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis();
         // get friend number and threshold from cmd
-//        System.out.println("Please enter number of friends and threshold:");
-//        if (args.length>0){
-//            friendNum = Integer.parseInt(args[0]);
-//            threshold = Integer.parseInt(args[1]);
-//        }
+        if (args.length>0){
+            friendNum = Integer.parseInt(args[0]);
+            threshold = Integer.parseInt(args[1]);
+        }
 
         // start friends' threads
         for (int i =0; i<friendNum; i++){
@@ -33,7 +34,7 @@ public class Zombie{
                 countZombie();
                 System.out.println("[Main thread counting ends]");
                 System.out.println("[Main thread making decision starts]");
-                // entered zombie number beyond threshold
+                // current zombie number beyond threshold
                 if (currentNum >= threshold){
                     System.out.println("Current zombie number beyond threshold");
                 }else{
@@ -48,7 +49,13 @@ public class Zombie{
 
                 Thread.sleep(1000);
 
+            }
 
+            // shut down all friend threads
+            running = false;
+            // main thread waits until all friend threads shut down
+            for (Friend friend : friends){
+                friend.myThread.join();
             }
             System.out.println("\nRemovedNum:" + removedNum
                     + "\tPeriod:" + period/1000 + "s" +
@@ -107,7 +114,7 @@ public class Zombie{
         @Override
         public void run() {
             try {
-                while(true) {
+                while(running) {
                     if (canLetIn) {
                         letInZombie();
                         System.out.println("Friend thread " + myThread.getId() + " newly entered:" + entered);
