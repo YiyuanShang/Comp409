@@ -6,14 +6,13 @@ import java.util.Random;
 
 public class zombie {
     static List<Friend> friends = new ArrayList<>();
-    static int friendNum;
-    static int threshold;
-
-    static int enteredTotalNum;
-    static int removedNum = 0;
-    static int currentNum;
-    static long period = 20 * 1000; // 20s
-    static boolean running = true;
+    static int friendNum; // number of friend threads, args[0]
+    static int threshold; // threshold, args[1]
+    static int enteredTotalNum; // total number of entered zombies
+    static int removedNum = 0; // number of removed zombies
+    static int currentNum; // number of current zombies
+    static long period = 20 * 1000; // default running time is 20s
+    static boolean running = true; // flag variable to control friend threads running
 
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis();
@@ -30,23 +29,27 @@ public class zombie {
         }
         try{
             while (System.currentTimeMillis() - startTime <= period){
-
+                // ask friend threads to stop letting zombie in while counting and making a decision
+                setFriendsLetInStatus(false);
                 countZombie();
-                System.out.println("[Main thread counting ends]");
-                System.out.println("[Main thread making decision starts]");
-                // current zombie number beyond threshold
+
+                // Main thread decision making starts
+                // current zombie number is beyond threshold
                 if (currentNum >= threshold){
-                    System.out.println("Current zombie number beyond threshold");
+                    System.out.println("Current zombie number is beyond threshold");
+                    System.out.println("Main thread asks Friend threads to stop letting zombie in");
                 }else{
                     if (currentNum <= threshold/2){
-                        setFriendLetInStatus(true);
+                        setFriendsLetInStatus(true);
                     }
                 }
-                System.out.println("[Main thread making decision ends]");
+                //Main thread decision making ends
+
                 if (currentNum > 0){
                     eliminateZombie();
                 }
 
+                // check the total number of current zombies every 1s
                 Thread.sleep(1000);
 
             }
@@ -57,71 +60,66 @@ public class zombie {
             for (Friend friend : friends){
                 friend.myThread.join();
             }
-            System.out.println("\nRemovedNum:" + removedNum
-                    + "\tPeriod:" + period/1000 + "s" +
-                    "\tThroughput:" + (float)removedNum/(float)(period/1000));
-            System.exit(1);
+            System.out.println("\nFinal Result ->"
+                    + "\t FriendNum:" + friendNum
+                    + "\t Threshold:" + threshold
+                    + "\t RemovedNum:" + removedNum
+                    + "\t Period:" + period/1000 + "s"
+                    + "\t Throughput:" + (float)removedNum/(float)(period/1000) + " zombie/second");
+            System.exit(0);
         }catch (InterruptedException e){
             e.printStackTrace();
         }
 
-
-
     }
 
     synchronized static void countZombie(){
-        System.out.println("[Main Thread counting starts]");
         enteredTotalNum = 0;
         for (Friend friend: friends){
-            // ask friend thread to stop letting zombie in
-            friend.canLetIn = false;
             enteredTotalNum += friend.entered;
         }
         currentNum = enteredTotalNum - removedNum;
-        System.out.println("Main thread enteredTotal:" + enteredTotalNum
-                            + "\tremoved:" + removedNum
-                            + "\tcurrent:" + currentNum
-                            + "\tthreshold:" + threshold);
+        System.out.println("Main thread counting -> "
+                            + "\t enteredTotal:" + enteredTotalNum
+                            + "\t removed:" + removedNum
+                            + "\t current:" + currentNum);
     }
 
     static void eliminateZombie(){
+        // obtain a random number between [1,10]
         Random rand = new Random();
         int probability = rand.nextInt(10) + 1;
+        // remove a zombie with 40% probability
         if (probability <= 4){
             removedNum ++;
+            System.out.println("Main thread removed:" + removedNum);
         }
-        System.out.println("Main thread removed:" + removedNum);
-
     }
 
-    static void setFriendLetInStatus(Boolean pCanLetIn){
+    static void setFriendsLetInStatus(Boolean pCanLetIn){
         for(Friend friend:friends){
-            friend.setCanLetIn(pCanLetIn);
+            friend.canLetIn = pCanLetIn;
         }
     }
 
 
-    private static class Friend implements Runnable{
+    static class Friend implements Runnable{
         Thread myThread;
         boolean canLetIn = true;
         int entered = 0;
 
         Friend(){
             myThread = new Thread(this);
-            System.out.println("Friend thread " + myThread.getId() + " created");
             myThread.start();
         }
         @Override
         public void run() {
             try {
                 while(running) {
+                    // let zombie in every 10 ms
                     if (canLetIn) {
                         letInZombie();
-                        System.out.println("Friend thread " + myThread.getId() + " newly entered:" + entered);
-                    } else {
-                        System.out.println("Friend thread " + myThread.getId() + " stops letting zombie in, already entered:" + entered);
                     }
-
                     Thread.sleep(10);
                 }
 
@@ -131,16 +129,14 @@ public class zombie {
         }
 
         void letInZombie(){
-            // obtain a number between [1-10]
+            // obtain a random number between [1-10]
             Random rand = new Random();
             int probability = rand.nextInt(10) + 1;
+            // let a zombie in with 10% probability
             if (probability == 1){
                 entered ++;
+                System.out.println("Friend thread " + myThread.getId() + " already entered:" + entered);
             }
-        }
-
-        synchronized void setCanLetIn(Boolean pCanLetIn){
-            canLetIn = pCanLetIn;
         }
     }
 }
