@@ -17,7 +17,7 @@ public class checkers {
         List<CheckerThread> checkers = new ArrayList<>();
         for (int i = 0; i<t; i++){
             Square square = occupied.get(i);
-            CheckerThread checker = new CheckerThread(square.x, square.y);
+            CheckerThread checker = new CheckerThread(square.x, square.y, "Thread" + (i+1));
             checkers.add(checker);
         }
 
@@ -38,29 +38,29 @@ public class checkers {
 
     private static void populatePositions(){
         while (occupied.size() < t){
-            Square square = new Square((int)(Math.random() * grid + 1), (int)(Math.random() * grid+ 1));
+            int x = (int)(Math.random() * grid + 1);
+            int y = (int)(Math.random() * grid + 1);
             for (Square square1 : occupied){
-                if (square.x == square.x && square1.y == square.y) break;
+                if (x == square1.x && y == square1.y) break;
             }
-            occupied.add(square);
+            occupied.add(new Square(x, y));
         }
     }
-
-
 
 
     static class CheckerThread implements Runnable{
         Thread myThread;
         Square currSquare;
+        Square waitSquare;
         private int currAction;
         boolean beCaptured;
 
-        public CheckerThread(Integer x, Integer y){
+        public CheckerThread(Integer x, Integer y, String threadId){
             currSquare = new Square(x, y);
             currAction = 0;
             beCaptured = false;
-            myThread = new Thread(this);
-            System.out.println("Thread" + myThread.getId() + ": initializes at " + currSquare.toString());
+            myThread = new Thread(this, threadId);
+            System.out.println(myThread.getName() + ": initializes at " + currSquare.toString());
 
         }
 
@@ -77,6 +77,7 @@ public class checkers {
             }
             // remove spawn
             occupied.remove(currSquare);
+            System.out.println(myThread.getName() + " is DONE!");
         }
 
         /**
@@ -116,7 +117,7 @@ public class checkers {
             beCaptured = isCapturedAt(currSquare.x, currSquare.y);
 
             if (beCaptured){
-                System.out.println("Thread" + myThread.getId() + ": captured");
+                System.out.println(myThread.getName() + ": captured");
                 try {
                     // captured thread sleeps
                     Thread.sleep((long) ((Math.random() * ((4*k - 2*k) + 1)) + 2*k));
@@ -128,7 +129,7 @@ public class checkers {
                     occupied.add(respawn);
                     capturedAt.remove(currSquare);
                     currSquare = respawn;
-                    System.out.println("Thread" + myThread.getId() + ": respawning at " + currSquare.toString());
+                    System.out.println(myThread.getName() + ": respawning at " + currSquare.toString());
 
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -157,7 +158,7 @@ public class checkers {
             }
             // check if a simple move is possible
             Square nextSquare = new Square(next_x, next_y);
-            nextSquare.beginCheck();
+            nextSquare.beginCheck(this);
             canMove = !isOccupied(nextSquare.x, nextSquare.y);
 
             if (canMove) {
@@ -176,10 +177,10 @@ public class checkers {
                     return false;
                 }
                 Square jumpSquare = new Square(jump_x, jump_y);
-                jumpSquare.beginCheck();
+                jumpSquare.beginCheck(this);
                 canCapture = !isOccupied(jumpSquare.x, jumpSquare.y);
                 if (canCapture) {
-                    System.out.println("Thread" + myThread.getId() + ": captures " + nextSquare.toString());
+                    System.out.println(myThread.getName() + ": captures " + nextSquare.toString());
                     captureMove(nextSquare, jumpSquare);
                     nextSquare.endCheck();
                     jumpSquare.endCheck();
@@ -199,7 +200,7 @@ public class checkers {
             occupied.remove(currSquare);
             currSquare = nextSquare;
             occupied.add(nextSquare);
-            System.out.println("Thread" + myThread.getId() + ": moves to " +  currSquare.toString());
+            System.out.println(myThread.getName() + ": moves to " +  currSquare.toString());
         }
 
         /**
@@ -270,6 +271,7 @@ public class checkers {
         private Integer x;
         private Integer y;
         private boolean checking;
+        private CheckerThread owner;
 
         public Square(Integer x, Integer y){
             this.x = x;
@@ -277,10 +279,13 @@ public class checkers {
             this.checking = false;
         }
 
-        public synchronized void beginCheck(){
+        public synchronized void beginCheck(CheckerThread checkerThread){
             while(checking){
                 try {
-                    this.wait();
+                    if (checkerThread.currSquare != owner.waitSquare){
+                        checkerThread.waitSquare = this;
+                        this.wait();
+                    }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -290,6 +295,7 @@ public class checkers {
 
         public synchronized void endCheck(){
             this.checking = false;
+            this.owner = null;
             this.notifyAll();
         }
 
