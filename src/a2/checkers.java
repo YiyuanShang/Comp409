@@ -4,7 +4,7 @@ import java.util.*;
 
 public class checkers {
     public static int t = 16; // checker number
-    public static int k = 5; //
+    public static int k = 5; // sleeping time
     public static int n = 50; // action number
     public static int grid = 8;
 
@@ -12,6 +12,13 @@ public class checkers {
     public static volatile List<Square> capturedAt = new ArrayList<>();
 
     public static void main(String[] args) {
+        // use default settings unless given command line arguments
+        if (args.length>0){
+            t = Integer.valueOf(args[0]);
+            k = Integer.valueOf(args[1]);
+            n = Integer.valueOf(args[2]);
+        }
+
         populatePositions();
 
         List<CheckerThread> checkers = new ArrayList<>();
@@ -31,11 +38,11 @@ public class checkers {
                 e.printStackTrace();
             }
         }
-        System.out.println("Main Thread is done");
-
-
     }
 
+    /**
+     * get t number of grid points randomly
+     */
     private static void populatePositions(){
         while (occupied.size() < t){
             int x = (int)(Math.random() * grid + 1);
@@ -60,7 +67,7 @@ public class checkers {
             currAction = 0;
             beCaptured = false;
             myThread = new Thread(this, threadId);
-            System.out.println(myThread.getName() + ": initializes at " + currSquare.toString());
+//            System.out.println(myThread.getName() + ": initializes at " + currSquare.toString());
 
         }
 
@@ -267,6 +274,9 @@ public class checkers {
 
     }
 
+    /**
+     * monitor class
+     */
     static class Square{
         private Integer x;
         private Integer y;
@@ -280,23 +290,41 @@ public class checkers {
         }
 
         public synchronized void beginCheck(CheckerThread checkerThread){
-            while(checking){
+            // this monitor is already locked
+            // current thread is permitted to wait for this monitor only when no dependency cycle
+            while(owner != null && checking && !hasCycle(checkerThread)){
                 try {
-                    if (checkerThread.currSquare != owner.waitSquare){
                         checkerThread.waitSquare = this;
                         this.wait();
-                    }
+
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-            checking = true;
+            this.checking = true;
+            this.owner = checkerThread;
         }
 
         public synchronized void endCheck(){
             this.checking = false;
             this.owner = null;
             this.notifyAll();
+        }
+
+        /**
+         * check whether would exist a dependency cycle if current thread waits for this monitor
+         * @param checkerThread current thread
+         * @return
+         */
+        private boolean hasCycle(CheckerThread checkerThread){
+            Square waitsMonitor = this.owner.waitSquare;
+            while (waitsMonitor != null){
+                if (waitsMonitor == checkerThread.currSquare){
+                    return true;
+                }
+                waitsMonitor = waitsMonitor.owner.waitSquare;
+            }
+            return false;
         }
 
         public String toString(){

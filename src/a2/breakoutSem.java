@@ -1,18 +1,22 @@
 package a2;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Semaphore;
 
 public class breakoutSem {
     public static long n = 10 * 1000; // running period for all threads
-    public static int k = 20; // sleeping time before student attempts to enter room
-    public static int w = 30; // sleeping time when student is in room
+    public static int k = 10; // sleeping time before student attempts to enter room
+    public static int w = 20; // sleeping time when student is in room
     public static boolean running = true;
-
+    static Room room = new Room();
 
     public static void main(String[] args) {
-        Room room = new Room();
+        // use default settings unless given command line arguments
+        if (args.length>0){
+            n = Long.valueOf(args[0]);
+            k = Integer.valueOf(args[1]);
+            w = Integer.valueOf(args[2]);
+        }
+
         long startTime = System.currentTimeMillis();
 
         Thread thread[] = new Thread[12];
@@ -38,7 +42,7 @@ public class breakoutSem {
                 e.printStackTrace();
             }
         }
-        System.out.println("[DEBUG] Main thread: finished");
+//        System.out.println("[DEBUG] Main thread: finished");
     }
 
     static class Room{
@@ -62,7 +66,7 @@ public class breakoutSem {
                     student.inRoom = true;
                     owner = student.faculty;
                     studentNum++;
-                    System.out.println("[DEBUG] enter:" + student.studentId + "(" + student.faculty + ") entered room ["+ studentNum + "]");
+//                    System.out.println("[DEBUG] enter:" + student.studentId + "(" + student.faculty + ") entered room ["+ studentNum + "]");
                     System.out.println("Owner:" + owner);
 
                     // allow other students to make attempt
@@ -79,7 +83,7 @@ public class breakoutSem {
             // if the student entered the room
             if (student.inRoom) {
                 studentNum--;
-                System.out.println("[DEBUG] leave:" + student.studentId + "(" + student.faculty + ") left room [" + studentNum + "]");
+//                System.out.println("[DEBUG] leave:" + student.studentId + "(" + student.faculty + ") left room [" + studentNum + "]");
                 if (studentNum == 0) {
                     owner = Faculty.NOFACULTY;
                     System.out.println("EMPTY");
